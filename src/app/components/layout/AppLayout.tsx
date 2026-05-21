@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../../../features/auth/hooks/useAuth";
 
@@ -19,6 +19,11 @@ export function AppLayout() {
           </button>
         </div>
       </header>
+      <nav className="app-nav" aria-label="Primary navigation">
+        <NavLink to="/halls">Halls</NavLink>
+        {user?.role === "user" ? <NavLink to="/favorites">Favorites</NavLink> : null}
+        {user?.role === "admin" ? <NavLink to="/facilities">Facilities</NavLink> : null}
+      </nav>
       <main className="workspace">
         <Outlet />
       </main>
