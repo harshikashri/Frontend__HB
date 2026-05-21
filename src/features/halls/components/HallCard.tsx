@@ -1,4 +1,4 @@
-import type { Hall } from "../services/hallTypes";
+import type { Hall, HallTimeSlot } from "../services/hallTypes";
 
 type HallCardProps = {
   hall: Hall;
@@ -9,6 +9,9 @@ type HallCardProps = {
   onToggleStatus: (hall: Hall) => void;
   onAddFavorite?: (hall: Hall) => void;
   onRemoveFavorite?: (hall: Hall) => void;
+  onSelect?: (hall: Hall) => void;
+  isSelected?: boolean;
+  availableSlots?: HallTimeSlot[];
 };
 
 function formatDate(value: string) {
@@ -27,6 +30,9 @@ export function HallCard({
   onToggleStatus,
   onAddFavorite,
   onRemoveFavorite,
+  onSelect,
+  isSelected = false,
+  availableSlots,
 }: HallCardProps) {
   const visibleFacilities = isAdmin
     ? hall.facilities
@@ -34,15 +40,32 @@ export function HallCard({
   const activeFacilityCount = hall.facilities.filter((facility) => facility.is_active).length;
 
   return (
-    <article className={`hall-card ${hall.is_active ? "" : "hall-card-disabled"}`}>
+    <article
+      className={`hall-card ${!isAdmin ? "hall-card-clickable" : ""} ${hall.is_active ? "" : "hall-card-disabled"} ${isSelected ? "hall-card-selected" : ""}`}
+      role={!isAdmin ? "button" : undefined}
+      tabIndex={!isAdmin ? 0 : undefined}
+      onClick={!isAdmin ? () => onSelect?.(hall) : undefined}
+      onKeyDown={
+        !isAdmin
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSelect?.(hall);
+              }
+            }
+          : undefined
+      }
+    >
       <div className="hall-card-header">
         <div>
-          <span className={`status-dot ${hall.is_active ? "status-active" : "status-disabled"}`} />
+          {isAdmin ? <span className={`status-dot ${hall.is_active ? "status-active" : "status-disabled"}`} /> : null}
           <h3>{hall.name}</h3>
         </div>
-        <span className={`status-pill ${hall.is_active ? "active" : "disabled"}`}>
-          {hall.is_active ? "Active" : "Disabled"}
-        </span>
+        {isAdmin ? (
+          <span className={`status-pill ${hall.is_active ? "active" : "disabled"}`}>
+            {hall.is_active ? "Active" : "Disabled"}
+          </span>
+        ) : null}
       </div>
 
       <dl className="hall-facts">
@@ -70,6 +93,19 @@ export function HallCard({
         </div>
       ) : null}
 
+      {availableSlots ? (
+        <div className="hall-availability-preview">
+          <span>{availableSlots.length} available slot{availableSlots.length === 1 ? "" : "s"}</span>
+          {availableSlots.length > 0 ? (
+            <strong>
+              {formatDate(availableSlots[0].start_time)} - {formatDate(availableSlots[0].end_time)}
+            </strong>
+          ) : (
+            <strong>No open time in this window</strong>
+          )}
+        </div>
+      ) : null}
+
       {isAdmin ? (
         <>
           <p className="timestamp">Updated {formatDate(hall.updated_at)}</p>
@@ -90,12 +126,22 @@ export function HallCard({
       ) : (
         <div className="hall-actions">
           <button
-            className={isFavorite ? "button button-danger" : "button button-primary"}
+            aria-label={isFavorite ? `Remove ${hall.name} from favorites` : `Add ${hall.name} to favorites`}
+            className={`favorite-star-button ${isFavorite ? "favorite-star-active" : ""}`}
+            title={isFavorite ? "Remove favorite" : "Add favorite"}
             type="button"
             disabled={isMutating}
-            onClick={() => (isFavorite ? onRemoveFavorite?.(hall) : onAddFavorite?.(hall))}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (isFavorite) {
+                onRemoveFavorite?.(hall);
+                return;
+              }
+
+              onAddFavorite?.(hall);
+            }}
           >
-            {isFavorite ? "Remove favorite" : "Add favorite"}
+            {isFavorite ? "★" : "☆"}
           </button>
         </div>
       )}

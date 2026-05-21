@@ -1,22 +1,90 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../auth/hooks/useAuth";
 import { useFavorites } from "../../favorites/hooks/useFavorites";
-import type { Hall, HallCreatePayload, HallUpdatePayload } from "../services/hallTypes";
+import type { Facility } from "../../facilities/services/facilityTypes";
+import type {
+  Hall,
+  HallCreatePayload,
+  HallSearchResultHall,
+  HallTimeSlot,
+  HallUpdatePayload,
+} from "../services/hallTypes";
 import { useHalls } from "../hooks/useHalls";
+import { useHallSearch } from "../hooks/useHallSearch";
 import { HallCard } from "./HallCard";
 import { HallForm } from "./HallForm";
+import { HallSearchPanel } from "./HallSearchPanel";
+import type { HallSearchRefinements } from "./HallSearchPanel";
 import { HallStats } from "./HallStats";
 
 export function HallsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { halls, stats, isAdmin, isLoading, error, createHall, updateHall } = useHalls();
+  const hallSearch = useHallSearch();
   const favorites = useFavorites();
   const [editingHall, setEditingHall] = useState<Hall | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [mutatingHallName, setMutatingHallName] = useState<string | null>(null);
+  const [searchRefinements, setSearchRefinements] = useState<HallSearchRefinements>({
+    query: "",
+    minCapacity: null,
+  });
+
+  const knownFacilities = useMemo(() => {
+    const facilityMap = new Map<string, Facility>();
+
+    for (const hall of halls) {
+      for (const hallFacility of hall.facilities) {
+        if (!isAdmin && !hallFacility.is_active) {
+          continue;
+        }
+
+        facilityMap.set(hallFacility.facility.name.toLowerCase(), {
+          id: hallFacility.facility.id,
+          name: hallFacility.facility.name,
+        });
+      }
+    }
+
+    return Array.from(facilityMap.values()).sort((first, second) =>
+      first.name.localeCompare(second.name),
+    );
+  }, [halls, isAdmin]);
+
+  const searchSlotsByHallId = useMemo(() => {
+    const slotMap = new Map<string, HallTimeSlot[]>();
+
+    for (const result of hallSearch.result?.results ?? []) {
+      slotMap.set(result.hall_id, result.available_slots);
+    }
+
+    return slotMap;
+  }, [hallSearch.result]);
+
+  const displayedHalls = useMemo(() => {
+    if (!hallSearch.result) {
+      return halls;
+    }
+
+    const hallMap = new Map(halls.map((hall) => [hall.id, hall]));
+    const query = searchRefinements.query.toLowerCase();
+
+    return hallSearch.result.results
+      .filter((result: HallSearchResultHall) => result.available_slots.length > 0)
+      .filter((result: HallSearchResultHall) =>
+        searchRefinements.minCapacity ? result.capacity >= searchRefinements.minCapacity : true,
+      )
+      .filter((result: HallSearchResultHall) =>
+        query ? result.hall_name.toLowerCase().includes(query) : true,
+      )
+      .map((result: HallSearchResultHall) => hallMap.get(result.hall_id))
+      .filter((hall): hall is Hall => Boolean(hall));
+  }, [hallSearch.result, halls, searchRefinements]);
 
   async function handleCreate(payload: HallCreatePayload) {
     setIsSaving(true);
@@ -94,6 +162,31 @@ export function HallsPage() {
     }
   }
 
+  function handleSelectHall(hall: Hall) {
+    navigate(`/halls/${encodeURIComponent(hall.name)}`);
+  }
+
+  async function handleSearch(
+    filters: Parameters<typeof hallSearch.search>[0],
+    refinements: HallSearchRefinements,
+  ) {
+    setFormError(null);
+    setMessage(null);
+    setSearchRefinements(refinements);
+
+    try {
+      await hallSearch.search(filters);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Unable to search halls.");
+    }
+  }
+
+  function handleClearSearch() {
+    hallSearch.clear();
+    setSearchRefinements({ query: "", minCapacity: null });
+    setFormError(null);
+  }
+
   return (
     <div className="halls-page">
       <section className="page-intro">
@@ -105,6 +198,17 @@ export function HallsPage() {
       </section>
 
       <HallStats {...stats} isAdmin={isAdmin} />
+
+      {!isAdmin ? (
+        <HallSearchPanel
+          halls={halls}
+          facilities={knownFacilities}
+          isSearching={hallSearch.isSearching}
+          isActive={Boolean(hallSearch.result)}
+          onSearch={handleSearch}
+          onClear={handleClearSearch}
+        />
+      ) : null}
 
       {isAdmin ? (
         <div className="admin-grid">
@@ -126,19 +230,31 @@ export function HallsPage() {
 
       {!isAdmin && (formError || message) ? (
         <section className="tool-panel compact-panel">
-          <p className="eyebrow">Favorites</p>
+          <p className="eyebrow">Status</p>
           {formError ? <p className="form-message">{formError}</p> : null}
           {message ? <p className="success-message">{message}</p> : null}
         </section>
       ) : null}
 
-      {error ? <p className="form-message">{error}</p> : null}
+      {error || hallSearch.error ? <p className="form-message">{error ?? hallSearch.error}</p> : null}
+
+      {!isAdmin && hallSearch.result ? (
+        <section className="section-heading">
+          <div>
+            <p className="eyebrow">Search results</p>
+            <h2>{displayedHalls.length} hall{displayedHalls.length === 1 ? "" : "s"} available</h2>
+          </div>
+          <button className="button button-secondary" type="button" onClick={handleClearSearch}>
+            Show all halls
+          </button>
+        </section>
+      ) : null}
 
       <section className="hall-grid" aria-live="polite">
-        {isLoading ? (
+        {isLoading || hallSearch.isSearching ? (
           <p className="muted-text">Loading halls...</p>
-        ) : halls.length > 0 ? (
-          halls.map((hall) => (
+        ) : displayedHalls.length > 0 ? (
+          displayedHalls.map((hall) => (
             <HallCard
               key={hall.id}
               hall={hall}
@@ -151,10 +267,16 @@ export function HallsPage() {
               onToggleStatus={handleToggleStatus}
               onAddFavorite={handleAddFavorite}
               onRemoveFavorite={handleRemoveFavorite}
+              onSelect={handleSelectHall}
+              availableSlots={hallSearch.result ? searchSlotsByHallId.get(hall.id) ?? [] : undefined}
             />
           ))
         ) : (
-          <p className="muted-text">No halls found.</p>
+          <section className="empty-state">
+            <p className="eyebrow">No halls found</p>
+            <h3>No halls match this search.</h3>
+            <p>Adjust the time window or filters and search again.</p>
+          </section>
         )}
       </section>
     </div>
