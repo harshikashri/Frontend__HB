@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../auth/hooks/useAuth";
+import { BOOKING_NOTIFICATION_EVENT } from "../../notifications/hooks/useBookingNotifications";
 import type { Hall, HallCreatePayload, HallUpdatePayload } from "../services/hallTypes";
 import {
   addFacilityToHall,
@@ -38,6 +39,18 @@ export function useHalls() {
 
   useEffect(() => {
     void loadHalls();
+  }, [loadHalls]);
+
+  useEffect(() => {
+    const refreshHalls = () => {
+      void loadHalls();
+    };
+
+    window.addEventListener(BOOKING_NOTIFICATION_EVENT, refreshHalls);
+
+    return () => {
+      window.removeEventListener(BOOKING_NOTIFICATION_EVENT, refreshHalls);
+    };
   }, [loadHalls]);
 
   const saveHall = useCallback(

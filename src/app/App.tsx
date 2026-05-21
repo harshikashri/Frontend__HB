@@ -6,9 +6,11 @@ import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { UserRoute } from "./routes/UserRoute";
 import { LoginPage } from "../features/auth/components/LoginPage";
 import { RegisterPage } from "../features/auth/components/RegisterPage";
+import { AdminBookingsPage } from "../features/bookings/components/AdminBookingsPage";
+import { UserBookingsPage } from "../features/bookings/components/UserBookingsPage";
 import { FacilitiesPage } from "../features/facilities/components/FacilitiesPage";
-import { FavoritesPage } from "../features/favorites/components/FavoritesPage";
 import { HallsPage } from "../features/halls/components/HallsPage";
+import { UserHallDetailPage } from "../features/halls/components/UserHallDetailPage";
 
 export function App() {
   return (
@@ -26,11 +28,27 @@ export function App() {
         <Route index element={<Navigate to="/halls" replace />} />
         <Route path="halls" element={<HallsPage />} />
         <Route
-          path="favorites"
+          path="halls/:hallName"
           element={
             <UserRoute>
-              <FavoritesPage />
+              <UserHallDetailPage />
             </UserRoute>
+          }
+        />
+        <Route
+          path="bookings"
+          element={
+            <UserRoute>
+              <UserBookingsPage />
+            </UserRoute>
+          }
+        />
+        <Route
+          path="admin/bookings"
+          element={
+            <AdminRoute>
+              <AdminBookingsPage />
+            </AdminRoute>
           }
         />
         <Route

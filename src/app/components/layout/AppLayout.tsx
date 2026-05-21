@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../../../features/auth/hooks/useAuth";
+import { NotificationTray } from "../../../features/notifications/components/NotificationTray";
 
 export function AppLayout() {
   const { user, logout } = useAuth();
@@ -21,10 +22,12 @@ export function AppLayout() {
       </header>
       <nav className="app-nav" aria-label="Primary navigation">
         <NavLink to="/halls">Halls</NavLink>
-        {user?.role === "user" ? <NavLink to="/favorites">Favorites</NavLink> : null}
+        {user?.role === "user" ? <NavLink to="/bookings">My Bookings</NavLink> : null}
         {user?.role === "admin" ? <NavLink to="/facilities">Facilities</NavLink> : null}
+        {user?.role === "admin" ? <NavLink to="/admin/bookings">Bookings</NavLink> : null}
       </nav>
       <main className="workspace">
+        {user?.role === "user" ? <NotificationTray /> : null}
         <Outlet />
       </main>
     </div>
