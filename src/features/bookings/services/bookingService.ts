@@ -48,6 +48,10 @@ export function getBookingsByUserId(token: string, userId: string) {
   return request<Booking[]>(`/users/${encodeURIComponent(userId)}`, token);
 }
 
+export function getBookingsByHallName(token: string, hallName: string) {
+  return request<Booking[]>(`/halls/${encodeURIComponent(hallName)}`, token);
+}
+
 export function updateBookingTiming(token: string, bookingId: string, payload: BookingTimingPayload) {
   return request<Booking>(`/${encodeURIComponent(bookingId)}/timing`, token, {
     method: "PATCH",

@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../auth/hooks/useAuth";
 import { useHalls } from "../../halls/hooks/useHalls";
-import { createFacility } from "../services/facilityService";
+import { createFacility, getAllFacilities } from "../services/facilityService";
 import type { Facility } from "../services/facilityTypes";
 import { FacilityAssignmentForm } from "./FacilityAssignmentForm";
 import { FacilityCreateForm } from "./FacilityCreateForm";
@@ -11,12 +11,40 @@ import { HallFacilityMatrix } from "./HallFacilityMatrix";
 export function FacilitiesPage() {
   const { token } = useAuth();
   const { halls, isLoading, error, assignFacility, setHallFacilityStatus } = useHalls();
-  const [createdFacilities, setCreatedFacilities] = useState<Facility[]>([]);
+  const [availableFacilities, setAvailableFacilities] = useState<Facility[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
   const [mutatingKey, setMutatingKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    let ignore = false;
+    const authToken = token;
+
+    async function loadFacilities() {
+      try {
+        const facilities = await getAllFacilities(authToken);
+        if (!ignore) {
+          setAvailableFacilities(facilities);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setFormError(error instanceof Error ? error.message : "Unable to load facilities.");
+        }
+      }
+    }
+
+    void loadFacilities();
+
+    return () => {
+      ignore = true;
+    };
+  }, [token]);
 
   const knownFacilities = useMemo(() => {
     const facilityMap = new Map<string, Facility>();
@@ -30,14 +58,14 @@ export function FacilitiesPage() {
       }
     }
 
-    for (const facility of createdFacilities) {
+    for (const facility of availableFacilities) {
       facilityMap.set(facility.name.toLowerCase(), facility);
     }
 
     return Array.from(facilityMap.values()).sort((first, second) =>
       first.name.localeCompare(second.name),
     );
-  }, [createdFacilities, halls]);
+  }, [availableFacilities, halls]);
 
   async function handleCreate(name: string) {
     if (!token) {
@@ -50,7 +78,7 @@ export function FacilitiesPage() {
 
     try {
       const facility = await createFacility(token, { name });
-      setCreatedFacilities((current) => [...current, facility]);
+      setAvailableFacilities((current) => [...current, facility]);
       setMessage("Facility created. Add it to a hall when ready.");
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Unable to create facility.");

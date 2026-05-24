@@ -6,6 +6,7 @@ import {
   cancelBooking,
   createBooking,
   getAllBookings,
+  getBookingsByHallName,
   getBookingsByUserId,
   getMyBookings,
   updateBookingTiming,
@@ -14,6 +15,7 @@ import type { Booking, BookingCreatePayload, BookingTimingPayload } from "../ser
 
 type UseBookingsOptions = {
   userId?: string;
+  hallName?: string;
   enabled?: boolean;
 };
 
@@ -38,18 +40,23 @@ export function useBookings(options: UseBookingsOptions = {}) {
     setError(null);
 
     try {
-      const nextBookings = isAdmin
-        ? options.userId
-          ? await getBookingsByUserId(token, options.userId)
-          : await getAllBookings(token)
-        : await getMyBookings(token);
+      let nextBookings: Booking[];
+
+      if (isAdmin && options.hallName) {
+        nextBookings = await getBookingsByHallName(token, options.hallName);
+      } else if (isAdmin && options.userId) {
+        nextBookings = await getBookingsByUserId(token, options.userId);
+      } else {
+        nextBookings = isAdmin ? await getAllBookings(token) : await getMyBookings(token);
+      }
+
       setBookings(nextBookings);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Unable to load bookings.");
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin, options.enabled, options.userId, token]);
+  }, [isAdmin, options.enabled, options.hallName, options.userId, token]);
 
   useEffect(() => {
     void loadBookings();

@@ -5,12 +5,7 @@ export function NotificationTray() {
 		useBookingNotifications();
 
 	if (notifications.length === 0) {
-		return isConnected ? (
-			<section className="notification-tray notification-tray-idle" aria-live="polite">
-				<span className="notification-dot" />
-				<p>Listening for booking updates.</p>
-			</section>
-		) : null;
+		return null;
 	}
 
 	return (

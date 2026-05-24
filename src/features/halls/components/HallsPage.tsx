@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../auth/hooks/useAuth";
 import { useFavorites } from "../../favorites/hooks/useFavorites";
+import { getAllFacilities } from "../../facilities/services/facilityService";
 import type { Facility } from "../../facilities/services/facilityTypes";
 import type {
   Hall,
@@ -20,20 +21,64 @@ import type { HallSearchRefinements } from "./HallSearchPanel";
 import { HallStats } from "./HallStats";
 
 export function HallsPage() {
-  const { user } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
-  const { halls, stats, isAdmin, isLoading, error, createHall, updateHall } = useHalls();
+  const {
+    halls,
+    stats,
+    isAdmin,
+    isLoading,
+    error,
+    createHall,
+    updateHall,
+    assignFacility,
+    setHallFacilityStatus,
+  } = useHalls();
   const hallSearch = useHallSearch();
   const favorites = useFavorites();
   const [editingHall, setEditingHall] = useState<Hall | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [availableFacilities, setAvailableFacilities] = useState<Facility[]>([]);
+  const [facilityLoadError, setFacilityLoadError] = useState<string | null>(null);
   const [mutatingHallName, setMutatingHallName] = useState<string | null>(null);
   const [searchRefinements, setSearchRefinements] = useState<HallSearchRefinements>({
     query: "",
     minCapacity: null,
   });
+
+  useEffect(() => {
+    if (!token || !isAdmin) {
+      return;
+    }
+
+    const authToken = token;
+    let ignore = false;
+
+    async function loadFacilities() {
+      setFacilityLoadError(null);
+
+      try {
+        const facilities = await getAllFacilities(authToken);
+        if (!ignore) {
+          setAvailableFacilities(facilities);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setFacilityLoadError(
+            error instanceof Error ? error.message : "Unable to load facilities.",
+          );
+        }
+      }
+    }
+
+    void loadFacilities();
+
+    return () => {
+      ignore = true;
+    };
+  }, [isAdmin, token]);
 
   const knownFacilities = useMemo(() => {
     const facilityMap = new Map<string, Facility>();
@@ -51,10 +96,14 @@ export function HallsPage() {
       }
     }
 
+    for (const facility of availableFacilities) {
+      facilityMap.set(facility.name.toLowerCase(), facility);
+    }
+
     return Array.from(facilityMap.values()).sort((first, second) =>
       first.name.localeCompare(second.name),
     );
-  }, [halls, isAdmin]);
+  }, [availableFacilities, halls, isAdmin]);
 
   const searchSlotsByHallId = useMemo(() => {
     const slotMap = new Map<string, HallTimeSlot[]>();
@@ -86,13 +135,16 @@ export function HallsPage() {
       .filter((hall): hall is Hall => Boolean(hall));
   }, [hallSearch.result, halls, searchRefinements]);
 
-  async function handleCreate(payload: HallCreatePayload) {
+  async function handleCreate(payload: HallCreatePayload, facilityNames: string[]) {
     setIsSaving(true);
     setFormError(null);
     setMessage(null);
 
     try {
       await createHall(payload);
+      for (const facilityName of facilityNames) {
+        await assignFacility(payload.name, facilityName);
+      }
       setMessage("Hall created.");
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Unable to create hall.");
@@ -101,13 +153,35 @@ export function HallsPage() {
     }
   }
 
-  async function handleUpdate(payload: HallUpdatePayload) {
+  async function handleUpdate(payload: HallUpdatePayload, facilityNames: string[]) {
     setIsSaving(true);
     setFormError(null);
     setMessage(null);
 
     try {
       await updateHall(payload);
+      const currentFacilities = editingHall?.facilities ?? [];
+      const currentFacilityNames = new Set(
+        currentFacilities.map((hallFacility) => hallFacility.facility.name),
+      );
+      const selectedFacilityNameSet = new Set(facilityNames);
+      const nextHallName = payload.name?.trim() || payload.hall_name;
+
+      for (const facilityName of facilityNames) {
+        if (!currentFacilityNames.has(facilityName)) {
+          await assignFacility(nextHallName, facilityName);
+        }
+      }
+
+      for (const hallFacility of currentFacilities) {
+        const facilityName = hallFacility.facility.name;
+        const shouldBeActive = selectedFacilityNameSet.has(facilityName);
+
+        if (hallFacility.is_active !== shouldBeActive) {
+          await setHallFacilityStatus(nextHallName, facilityName, shouldBeActive);
+        }
+      }
+
       setEditingHall(null);
       setMessage("Hall updated.");
     } catch (error) {
@@ -214,6 +288,7 @@ export function HallsPage() {
         <div className="admin-grid">
           <HallForm
             editingHall={editingHall}
+            facilities={knownFacilities}
             isSaving={isSaving}
             onCancelEdit={() => setEditingHall(null)}
             onCreate={handleCreate}
@@ -221,9 +296,13 @@ export function HallsPage() {
           />
           <section className="tool-panel compact-panel">
             <p className="eyebrow">Status</p>
-            {formError ? <p className="form-message">{formError}</p> : null}
+            {formError || facilityLoadError ? (
+              <p className="form-message">{formError ?? facilityLoadError}</p>
+            ) : null}
             {message ? <p className="success-message">{message}</p> : null}
-            {!formError && !message ? <p className="muted-text">Ready</p> : null}
+            {!formError && !facilityLoadError && !message ? (
+              <p className="muted-text">Ready</p>
+            ) : null}
           </section>
         </div>
       ) : null}

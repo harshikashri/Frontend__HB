@@ -28,3 +28,17 @@ export async function createFacility(token: string, payload: FacilityCreatePaylo
 
   return response.json() as Promise<Facility>;
 }
+
+export async function getAllFacilities(token: string) {
+  const response = await fetch(`${FACILITIES_URL}/`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+
+  return response.json() as Promise<Facility[]>;
+}

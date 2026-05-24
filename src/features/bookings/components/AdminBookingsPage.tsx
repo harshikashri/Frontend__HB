@@ -5,20 +5,20 @@ import { BookingList } from "./BookingList";
 import { useBookings } from "../hooks/useBookings";
 
 export function AdminBookingsPage() {
-  const [draftUserId, setDraftUserId] = useState("");
-  const [selectedUserId, setSelectedUserId] = useState("");
+  const [draftHallName, setDraftHallName] = useState("");
+  const [selectedHallName, setSelectedHallName] = useState("");
   const { bookings, stats, isLoading, error } = useBookings({
-    userId: selectedUserId.trim() || undefined,
+    hallName: selectedHallName.trim() || undefined,
   });
 
   function handleFilter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSelectedUserId(draftUserId.trim());
+    setSelectedHallName(draftHallName.trim());
   }
 
   function clearFilter() {
-    setDraftUserId("");
-    setSelectedUserId("");
+    setDraftHallName("");
+    setSelectedHallName("");
   }
 
   return (
@@ -29,7 +29,7 @@ export function AdminBookingsPage() {
           <h2>Booking overview</h2>
         </div>
         <span className="signed-in">
-          {selectedUserId ? "Filtered by user" : "All users"}
+          {selectedHallName ? "Filtered by hall" : "All halls"}
         </span>
       </section>
 
@@ -52,9 +52,9 @@ export function AdminBookingsPage() {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Find bookings</p>
-            <h2>User filter</h2>
+            <h2>Hall filter</h2>
           </div>
-          {selectedUserId ? (
+          {selectedHallName ? (
             <button className="button button-secondary" type="button" onClick={clearFilter}>
               Clear
             </button>
@@ -62,15 +62,15 @@ export function AdminBookingsPage() {
         </div>
 
         <form className="booking-filter-form" onSubmit={handleFilter}>
-          <label htmlFor="booking-user-id">User ID</label>
+          <label htmlFor="booking-hall-name">Hall name</label>
           <input
-            id="booking-user-id"
-            value={draftUserId}
-            placeholder="Paste a user UUID"
-            onChange={(event) => setDraftUserId(event.target.value)}
+            id="booking-hall-name"
+            value={draftHallName}
+            placeholder="Enter a hall name"
+            onChange={(event) => setDraftHallName(event.target.value)}
           />
           <button className="button button-primary" type="submit">
-            View user bookings
+            View hall bookings
           </button>
         </form>
       </section>
@@ -85,7 +85,7 @@ export function AdminBookingsPage() {
       <section className="section-heading">
         <div>
           <p className="eyebrow">Records</p>
-          <h2>{selectedUserId ? "Selected user bookings" : "All bookings"}</h2>
+          <h2>{selectedHallName ? "Selected hall bookings" : "All bookings"}</h2>
         </div>
       </section>
 

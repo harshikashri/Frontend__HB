@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 type AuthCardProps = {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   children: ReactNode;
 };
 
@@ -13,7 +13,7 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps) {
         <div className="auth-copy">
           <p className="eyebrow">Hall Booking Management</p>
           <h1>{title}</h1>
-          <p>{subtitle}</p>
+          {subtitle ? <p>{subtitle}</p> : null}
         </div>
         <div className="auth-card">{children}</div>
       </section>

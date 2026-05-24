@@ -43,10 +43,7 @@ export function LoginPage() {
   }
 
   return (
-    <AuthCard
-      title="Welcome back"
-      subtitle="Sign in with your account. Your workspace is selected from your access token."
-    >
+    <AuthCard title="Welcome back">
       <form className="auth-form" onSubmit={handleSubmit}>
         <label htmlFor="username">Username</label>
         <input

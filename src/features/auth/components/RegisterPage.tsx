@@ -41,10 +41,7 @@ export function RegisterPage() {
   }
 
   return (
-    <AuthCard
-      title="Create your account"
-      subtitle="Registration creates a user account in the auth service and signs you in."
-    >
+    <AuthCard title="Create your account">
       <form className="auth-form" onSubmit={handleSubmit}>
         <label htmlFor="name">Username</label>
         <input
