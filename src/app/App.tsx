@@ -40,6 +40,7 @@ export function App() {
           element={
             <UserRoute>
               <UserBookingsPage />
+              
             </UserRoute>
           }
         />
